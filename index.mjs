@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import axios from "axios";
 import qs from "qs";
 import fs from "fs";
