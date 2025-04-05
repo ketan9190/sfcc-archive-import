@@ -15,9 +15,8 @@ import ora from "ora";
 
 import optionator from "optionator";
 
-
 const spinner = new ora({ spinner: cliSpinners.simpleDotsScrolling });
-const interval = 2 * 1000;
+const interval = 5 * 1000;
 
 let optionatorLocal = optionator({
   options: [
@@ -77,17 +76,26 @@ let pathsForDw = ["dw.json", "cartridges/dw.json"];
 
 pathsForDw.forEach((pathFordw) => {
   if (fs.existsSync(path.resolve(pathFordw))) {
-    config = JSON.parse(fs.readFileSync(path.resolve(pathFordw), "utf8"));
+    let configlocal = JSON.parse(fs.readFileSync(path.resolve(pathFordw), "utf8"));
+    let { hostname, username, password, folderToImport, clientId, clientPassword } = configlocal;
+    config = { hostname, username, password, folderToImport, clientId, clientPassword };
   }
 });
 
-config.clientId = options.clientId || "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-config.clientPassword = options.clientPassword || "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-if(options.folderToImport){
-  config.folderToImport = options.folderToImport
-}
+let applicableAttr = ["hostname", "username", "password", "folderToImport", "clientId", "clientPassword"];
 
+applicableAttr.forEach((attr) => {
+  if (options[attr]) {
+    config[attr] = options[attr];
+  }
+});
 
+if (!config.clientId) config.clientId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+if (!config.clientPassword) config.clientPassword = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+let maskedconfigCopy = JSON.parse(JSON.stringify(config));
+maskedconfigCopy.password = "******";
+console.log(`Credentials being used : ${JSON.stringify(maskedconfigCopy, null, 2)}`);
 
 function auth() {
   let authApi = sfccci.auth;
@@ -95,10 +103,10 @@ function auth() {
   return new Promise(async (resolve, reject) => {
     authApi.auth(config.clientId, config.clientPassword, function (err, token) {
       if (!token) {
-        console.log("Authorization failed");
+        spinner.fail(chalk.red("Authorization failed"));
+        reject();
+        process.exit(0);
       }
-
-      console.log("Authorization successful");
 
       resolve(token);
     });
@@ -110,7 +118,7 @@ let startImport = function startImport(token, fileName, ocapiHost) {
 
   return new Promise(async (resolve, reject) => {
     instanceApi.import(ocapiHost, fileName, token, function (error, result) {
-      console.log(`*****Starting Import for host : ` + ocapiHost);
+      // console.log(`*****Starting Import for host : ` + ocapiHost);
       let jobId;
       let jobExecutionId;
       if (!error && typeof result !== "undefined" && result.id) {
@@ -122,7 +130,7 @@ let startImport = function startImport(token, fileName, ocapiHost) {
         console.log("Could not start import job! " + error);
       }
 
-      console.log("  * Job started. Execution ID: " + jobExecutionId);
+      // console.log("  * Job started. Execution ID: " + jobExecutionId);
 
       resolve({
         jobId: jobId,
@@ -135,7 +143,7 @@ let startImport = function startImport(token, fileName, ocapiHost) {
 async function checkJobStatus(ocapiHost, token, jobId, jobExecutionId) {
   const checkStatus = async () => {
     try {
-      console.log(`Checking status of ${ocapiHost}   ${jobId} Job ID: ${jobExecutionId}...`);
+     
 
       // API call to check job status
       const response = await checkOCAPIJobStatus(ocapiHost, token, jobId, jobExecutionId);
@@ -143,13 +151,14 @@ async function checkJobStatus(ocapiHost, token, jobId, jobExecutionId) {
       const status = response.data.execution_status; // Assuming the response has 'status'
 
       if (status === "finished") {
-        console.log(`************  ${ocapiHost}  ${jobId} is finished.`);
+        spinner.succeed(chalk.green("Zip imported"));
         clearInterval(statusInterval); // Clear the status check interval
       } else {
-        console.log(`${ocapiHost}  ${jobId} is still running...`);
+        spinner.start(chalk.yellow("Import Job still running..."));
       }
     } catch (error) {
       console.error(`Error checking status for ${jobId}:`, error);
+      process.exit(0)
     }
   };
 
@@ -184,9 +193,7 @@ async function checkOCAPIJobStatus(ocapiHost, token, jobIdToExecute, jobID) {
 
 async function uploadArchive(hostname, username, password, zipFilePathToUpload) {
   return new Promise(async (resolve, reject) => {
-    console.log("File Exists : " + fs.existsSync(zipFilePathToUpload));
     let zipFileNameToUpload = path.basename(zipFilePathToUpload);
-    console.log("File name : " + zipFileNameToUpload);
 
     var httpOptions = {
       hostname: hostname,
@@ -203,11 +210,11 @@ async function uploadArchive(hostname, username, password, zipFilePathToUpload) 
       var success = false;
 
       if (res.statusCode === 201 || res.statusCode === 200) {
-        console.log("uploaded");
+        // console.log("uploaded");
         success = true;
       } else if (res.statusCode === 204) {
         success = true;
-        console.log("Remote file exists!");
+        // console.log("Remote file exists!");
       } else if (res.statusCode === 401) {
         console.log("Authentication failed. Please check credentials.");
 
@@ -238,7 +245,7 @@ async function zipTheFolder(folderPathToUpload) {
     let pathToUpload = folderPathToUpload;
     let parentFolder = path.dirname(pathToUpload);
     let folderName = path.basename(pathToUpload);
-    let archiveOutputPath = path.resolve(parentFolder, `archiveOutput${folderName}`);
+    let archiveOutputPath = path.resolve(parentFolder, `temp_${folderName}`);
 
     fs.cpSync(pathToUpload, path.resolve(archiveOutputPath, `${folderName}/${folderName}`), { recursive: true });
     await zip(path.resolve(archiveOutputPath, `${folderName}`), path.resolve(archiveOutputPath, `${folderName}.zip`));
@@ -255,17 +262,25 @@ async function zipTheFolder(folderPathToUpload) {
 async function uploadAndImportArchive(ocapiHost, username, password, pathToUpload) {
   let zipFilePath = path.resolve(pathToUpload);
 
+  spinner.start(chalk.yellow("Zipping folder at temp path..."));
   let { zipFilePathToUpload, archiveOutputPath } = await zipTheFolder(zipFilePath);
+  spinner.succeed(chalk.green("Folder zipped at temp path: " + zipFilePathToUpload));
 
   zipFilePath = zipFilePathToUpload;
 
+  spinner.start(chalk.yellow("Uploading zip file..."));
   let filename = await uploadArchive(ocapiHost, username, password, zipFilePath);
+  spinner.succeed(chalk.green("File Uploaded : " + filename));
+
   fs.rmSync(archiveOutputPath, { recursive: true, force: true });
+  spinner.succeed(chalk.green("Deleted Temp path : " + archiveOutputPath));
+
+  spinner.start(chalk.yellow("Importing zip..."));
+
   let token = await auth();
   let jobContext = await startImport(token, filename, ocapiHost);
-  console.log(jobContext);
+ 
   checkJobStatus(ocapiHost, token, jobContext.jobId, jobContext.jobExecutionId);
 }
-
 
 uploadAndImportArchive(config.hostname, config.username, config.password, config.folderToImport);

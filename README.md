@@ -1,9 +1,9 @@
 # SFCC-Archive import
-It is used to zip the folder and import it as site import in targeted instance, it used most of the configuration from dw.json
+It is used to zip the folder and import it as site import in the targeted instance, it uses most of the configuration from dw.json
 
 ## Features
-- Automatically archives the folder
-- Upload in targeted realm 
+- Automatically archives the folder in temp path
+- Upload the zip file in targeted realm 
 - Import as site import
 - Fetch the hostname, username, password from dw.json
 - Can configure other credentials required in dw.json itself instead of passing as param such as folderToImport, clientId, clientPassword
