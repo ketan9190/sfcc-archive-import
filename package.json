@@ -1,6 +1,6 @@
 {
   "name": "sfcc-archive-import",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Archive and imports the file in sfcc instance",
   "main": "index.js",
   "engines": {
