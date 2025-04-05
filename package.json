@@ -15,14 +15,12 @@
   },
   "author": "",
   "license": "ISC",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/ketan9190/sfcc-archive-import.git"
   },
   "homepage": "https://github.com/ketan9190/sfcc-archive-import#readme",
-  "bin": {
-    "sfcc-archive-import": "./index.js"
-  },
   "dependencies": {
     "axios": "^1.8.4",
     "chalk": "^5.4.1",
@@ -32,5 +30,8 @@
     "ora": "^8.2.0",
     "sfcc-ci": "^2.12.0",
     "zip-a-folder": "^3.1.9"
+  },
+  "bin": {
+    "sfcc-archive-import": "./index.js"
   }
 }
