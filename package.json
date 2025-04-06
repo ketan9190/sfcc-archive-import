@@ -4,7 +4,7 @@
   "description": "Archive and imports the file in sfcc instance",
   "main": "index.js",
   "engines": {
-    "node": ">=14.14.0"
+    "node": ">=18.15.0"
   },
   "keywords": [
     "sfcc",
