@@ -153,6 +153,7 @@ async function checkJobStatus(ocapiHost, token, jobId, jobExecutionId) {
       if (status === "finished") {
         spinner.succeed(chalk.green("Zip imported"));
         clearInterval(statusInterval); // Clear the status check interval
+        process.exit(0);
       } else {
         spinner.start(chalk.yellow("Import Job still running..."));
       }
@@ -162,7 +163,7 @@ async function checkJobStatus(ocapiHost, token, jobId, jobExecutionId) {
     }
   };
 
-  // Check status immediately, then every 5 minutes
+  // Check status immediately, then every 5 sec
   const statusInterval = setInterval(checkStatus, interval);
 
   // Check status once immediately
