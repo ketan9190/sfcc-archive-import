@@ -229,12 +229,12 @@ async function uploadArchive(hostname, username, password, zipFilePathToUpload) 
       if (success) {
         resolve(zipFileNameToUpload);
       } else {
-        reject("error in uploading");
+        reject(new Error("Error in uploading the file"));
       }
     });
 
     putRequest.on("error", function (e) {
-      console.log("Error  " + e);
+      console.log("Error  " + e.message);
     });
 
     putRequest.end(data, "binary");
@@ -261,6 +261,7 @@ async function zipTheFolder(folderPathToUpload) {
 }
 
 async function uploadAndImportArchive(ocapiHost, username, password, pathToUpload) {
+  try{
   let zipFilePath = path.resolve(pathToUpload);
 
   spinner.start(chalk.yellow("Zipping folder at temp path..."));
@@ -271,10 +272,10 @@ async function uploadAndImportArchive(ocapiHost, username, password, pathToUploa
 
   spinner.start(chalk.yellow("Uploading zip file..."));
   let filename = await uploadArchive(ocapiHost, username, password, zipFilePath);
-  spinner.succeed(chalk.green("File Uploaded : " + filename));
+  spinner.succeed(chalk.green("File uploaded : " + filename));
 
   fs.rmSync(archiveOutputPath, { recursive: true, force: true });
-  spinner.succeed(chalk.green("Deleted Temp path : " + archiveOutputPath));
+  spinner.succeed(chalk.green("Deleted temp path : " + archiveOutputPath));
 
   spinner.start(chalk.yellow("Importing zip..."));
 
@@ -282,6 +283,9 @@ async function uploadAndImportArchive(ocapiHost, username, password, pathToUploa
   let jobContext = await startImport(token, filename, ocapiHost);
  
   checkJobStatus(ocapiHost, token, jobContext.jobId, jobContext.jobExecutionId);
+  }catch(e){
+    spinner.fail(chalk.red('Error Occured : '+ e.message));
+  }
 }
 
 uploadAndImportArchive(config.hostname, config.username, config.password, config.folderToImport);
