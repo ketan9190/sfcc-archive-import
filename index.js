@@ -61,6 +61,12 @@ let optionatorLocal = optionator({
       type: "String",
       description: "Path of folder to be imported",
     },
+    {
+      option: "doNotZip",
+      alias: "dnz",
+      type: "Boolean",
+      description: "Used when zip file is provided in folderToImport path, zipping the folder is not required",
+    },
   ],
 });
 
@@ -143,15 +149,30 @@ let startImport = function startImport(token, fileName, ocapiHost) {
 async function checkJobStatus(ocapiHost, token, jobId, jobExecutionId) {
   const checkStatus = async () => {
     try {
-     
-
       // API call to check job status
       const response = await checkOCAPIJobStatus(ocapiHost, token, jobId, jobExecutionId);
 
       const status = response.data.execution_status; // Assuming the response has 'status'
-
       if (status === "finished") {
-        spinner.succeed(chalk.green("Zip imported"));
+        let exit_status = response.data?.exit_status?.status;
+        if (exit_status === 'ok') {
+          spinner.succeed(chalk.green("Zip imported"));
+        } else if (exit_status === 'error') {
+          let status = {
+            logFilePath: response.data?.log_file_path,
+            steps: []
+          }
+
+          response.data.step_executions.forEach((step) => {
+            status.steps.push({
+              step_id: step.step_id,
+              status: step.status,
+              errorMessage: step.exit_status?.message
+            })
+          });
+
+          spinner.fail(chalk.red(`Error in JOB, below are the details ${JSON.stringify(status,null,2)}`));
+        }
         clearInterval(statusInterval); // Clear the status check interval
         process.exit(0);
       } else {
@@ -159,7 +180,7 @@ async function checkJobStatus(ocapiHost, token, jobId, jobExecutionId) {
       }
     } catch (error) {
       console.error(`Error checking status for ${jobId}:`, error);
-      process.exit(0)
+      process.exit(0);
     }
   };
 
@@ -234,7 +255,7 @@ async function uploadArchive(hostname, username, password, zipFilePathToUpload) 
     });
 
     putRequest.on("error", function (e) {
-      console.log("Error  " + e.message);
+      reject(new Error("Error  " + e.message));
     });
 
     putRequest.end(data, "binary");
@@ -261,30 +282,39 @@ async function zipTheFolder(folderPathToUpload) {
 }
 
 async function uploadAndImportArchive(ocapiHost, username, password, pathToUpload) {
-  try{
-  let zipFilePath = path.resolve(pathToUpload);
+  try {
+    let zipFilePathToUpload, archiveOutputPath;
 
-  spinner.start(chalk.yellow("Zipping folder at temp path..."));
-  let { zipFilePathToUpload, archiveOutputPath } = await zipTheFolder(zipFilePath);
-  spinner.succeed(chalk.green("Folder zipped at temp path: " + zipFilePathToUpload));
+    let zipFilePath = path.resolve(pathToUpload);
+    if (!options.doNotZip) {
+      // zip the folder
+      spinner.start(chalk.yellow("Zipping folder at temp path..."));
+      ({ zipFilePathToUpload, archiveOutputPath } = await zipTheFolder(zipFilePath))
+      spinner.succeed(chalk.green("Folder zipped at temp path: " + zipFilePathToUpload));
 
-  zipFilePath = zipFilePathToUpload;
+      zipFilePath = zipFilePathToUpload;
+    }
 
-  spinner.start(chalk.yellow("Uploading zip file..."));
-  let filename = await uploadArchive(ocapiHost, username, password, zipFilePath);
-  spinner.succeed(chalk.green("File uploaded : " + filename));
+    //upload zipped file
+    spinner.start(chalk.yellow("Uploading zip file..."));
+    let filename = await uploadArchive(ocapiHost, username, password, zipFilePath);
+    spinner.succeed(chalk.green("File uploaded : " + filename));
 
-  fs.rmSync(archiveOutputPath, { recursive: true, force: true });
-  spinner.succeed(chalk.green("Deleted temp path : " + archiveOutputPath));
+    if (!options.doNotZip) {
+      // delete temp path where folder was zipped
+      fs.rmSync(archiveOutputPath, { recursive: true, force: true });
+      spinner.succeed(chalk.green("Deleted temp path : " + archiveOutputPath));
+    }
 
-  spinner.start(chalk.yellow("Importing zip..."));
+    spinner.start(chalk.yellow("Importing zip..."));
 
-  let token = await auth();
-  let jobContext = await startImport(token, filename, ocapiHost);
- 
-  checkJobStatus(ocapiHost, token, jobContext.jobId, jobContext.jobExecutionId);
-  }catch(e){
-    spinner.fail(chalk.red('Error Occured : '+ e.message));
+    let token = await auth();
+    let jobContext = await startImport(token, filename, ocapiHost);
+
+    checkJobStatus(ocapiHost, token, jobContext.jobId, jobContext.jobExecutionId);
+  } catch (e) {
+    spinner.fail(chalk.red("Error Occured : " + e.message));
+    process.exit(0);
   }
 }
 
