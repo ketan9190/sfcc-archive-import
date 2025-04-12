@@ -1,5 +1,6 @@
 # SFCC-Archive import
 It is used to zip the folder and import it as site import in the targeted instance, it uses most of the configuration from dw.json
+![sample sfcc-archive-import](https://github.com/user-attachments/assets/6b05bf9d-a212-43a2-a1de-b6955f32bdb3)
 
 ## Features
 - Automatically archives the folder in temp path
