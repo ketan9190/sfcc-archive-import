@@ -155,24 +155,46 @@ async function checkJobStatus(ocapiHost, token, jobId, jobExecutionId) {
       const status = response.data.execution_status; // Assuming the response has 'status'
       if (status === "finished") {
         let exit_status = response.data?.exit_status?.status;
-        if (exit_status === 'ok') {
-          spinner.succeed(chalk.green("Zip imported"));
-        } else if (exit_status === 'error') {
-          let status = {
-            logFilePath: response.data?.log_file_path,
-            steps: []
-          }
+        let logfilePath = response.data?.log_file_path;
+        let logFileFullURL = logfilePath ? `https://${ocapiHost}/on/demandware.servlet/webdav${logfilePath}` : "";
+
+        let status = {
+          logFile: logFileFullURL,
+        };
+
+        if (exit_status === "ok") {
+          spinner.succeed(chalk.green(`Zip imported ${JSON.stringify(status, null, 2)}`));
+        } else if (exit_status === "error") {
+          status.steps = [];
 
           response.data.step_executions.forEach((step) => {
             status.steps.push({
               step_id: step.step_id,
               status: step.status,
-              errorMessage: step.exit_status?.message
-            })
+              errorMessage: step.exit_status?.message,
+            });
           });
 
-          spinner.fail(chalk.red(`Error in JOB, below are the details ${JSON.stringify(status,null,2)}`));
+          spinner.fail(chalk.red(`Error in JOB, below are the details ${JSON.stringify(status, null, 2)}`));
         }
+
+        // fetch Import summary from Logs
+        let configJOBExecution = {
+          method: "get",
+          maxBodyLength: Infinity,
+          url: logFileFullURL,
+          auth: {
+            username: config.username,
+            password: config.password,
+          },
+        };
+
+        let responseJobExecution = await axios.request(configJOBExecution);
+        const log = responseJobExecution.data;
+        const match = log.match(/============ Import Results \(SUMMARY\)[\s\S]*?(?=\n\[\d{4}-\d{2}-\d{2}.* GMT\])/);
+
+        const summary = match ? match[0] : "";
+        spinner.info(chalk.yellow(`${summary} For detailed logs, refer the log file path given above.`));
         clearInterval(statusInterval); // Clear the status check interval
         process.exit(0);
       } else {
@@ -289,7 +311,7 @@ async function uploadAndImportArchive(ocapiHost, username, password, pathToUploa
     if (!options.doNotZip) {
       // zip the folder
       spinner.start(chalk.yellow("Zipping folder at temp path..."));
-      ({ zipFilePathToUpload, archiveOutputPath } = await zipTheFolder(zipFilePath))
+      ({ zipFilePathToUpload, archiveOutputPath } = await zipTheFolder(zipFilePath));
       spinner.succeed(chalk.green("Folder zipped at temp path: " + zipFilePathToUpload));
 
       zipFilePath = zipFilePathToUpload;

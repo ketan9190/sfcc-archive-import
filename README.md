@@ -7,6 +7,7 @@ It is used to zip the folder and import it as site import in the targeted instan
 - Import as site import
 - Fetch the hostname, username, password from dw.json
 - Can configure other credentials required in dw.json itself instead of passing as param such as folderToImport, clientId, clientPassword
+- Provides log file path and Import Results (SUMMARY). 
 
 ## Prerequisites
 
@@ -65,5 +66,7 @@ May skip clientId and clientPassword when they are default aaaaaaaaaaaaaaaaaaaaa
   -c, --clientId String          OCAPI client ID
   -l, --clientPassword String    OCAPI client password
   --folderToImport, --fi String  Path of folder to be imported
+  --doNotZip, --dnz              Used when zip file is provided in folderToImport path, zipping the folder    
+                                 is not required
 </pre>
 Default clientId and clientPassword (aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa) will be used if it is not provided.
