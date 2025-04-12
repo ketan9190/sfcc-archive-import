@@ -26,17 +26,20 @@ It is used to zip the folder and import it as site import in the targeted instan
 			"client_id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			"resources":[
 				{
-					"resource_id": "/**",
+					"resource_id": "/jobs/*/executions",
 					"methods": [
-						"get",
-						"put",
-						"patch",
-						"delete",
 						"post"
 					],
 					"read_attributes": "(**)",
-					"write_attributes": "(**)",
-					"cache_time": 0
+					"write_attributes": "(**)"
+				},
+				{
+					"resource_id": "/jobs/*/executions/*",
+					"methods": [
+						"get"
+					],
+					"read_attributes": "(**)",
+					"write_attributes": "(**)"
 				}
 			]
 		}
@@ -66,8 +69,7 @@ May skip clientId and clientPassword when they are default aaaaaaaaaaaaaaaaaaaaa
   -p, --password String          BM password
   -c, --clientId String          OCAPI client ID
   -l, --clientPassword String    OCAPI client password
-  --folderToImport, --fi String  Path of folder to be imported
-  --doNotZip, --dnz              Used when zip file is provided in folderToImport path, zipping the folder    
-                                 is not required
+  --folderToImport, --fi String  Path of folder to be imported relative to current working directory
+  --doNotZip, --dnz              Used when zip file is provided in folderToImport path, zipping the folder is not required
 </pre>
 Default clientId and clientPassword (aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa) will be used if it is not provided.

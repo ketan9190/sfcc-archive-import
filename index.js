@@ -59,7 +59,7 @@ let optionatorLocal = optionator({
       option: "folderToImport",
       alias: "fi",
       type: "String",
-      description: "Path of folder to be imported",
+      description: "Path of folder to be imported relative to current working directory",
     },
     {
       option: "doNotZip",
@@ -127,16 +127,21 @@ let startImport = function startImport(token, fileName, ocapiHost) {
       // console.log(`*****Starting Import for host : ` + ocapiHost);
       let jobId;
       let jobExecutionId;
+      let errorMessage;
       if (!error && typeof result !== "undefined" && result.id) {
         jobId = result.job_id;
         jobExecutionId = result.id;
       } else if (typeof result !== "undefined" && result.fault) {
-        console.log("Could not start import job! HTTP " + error.status + ": " + result.fault.message);
+        errorMessage = "Could not start import job! HTTP " + error.status + ": " + result.fault.message;
       } else {
-        console.log("Could not start import job! " + error);
+        errorMessage = "Could not start import job! " + error;
       }
 
-      // console.log("  * Job started. Execution ID: " + jobExecutionId);
+      if (errorMessage) {
+        spinner.fail(chalk.red(`${errorMessage}, Please check credentials and OCAPI permissions`));
+        reject();
+        process.exit(0);
+      }
 
       resolve({
         jobId: jobId,
